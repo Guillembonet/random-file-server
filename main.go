@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,17 +26,39 @@ func main() {
 			http.Error(w, "invalid size_mb", http.StatusBadRequest)
 			return
 		}
-		MBpsString := r.URL.Query().Get("mbs")
-		MBps, err := strconv.Atoi(MBpsString)
-		if err != nil {
-			http.Error(w, "invalid mbs", http.StatusBadRequest)
-			return
+		MBsString := r.URL.Query().Get("mbs")
+		MBs := 0
+		limitedSpeed := false
+		if MBsString != "" {
+			limitedSpeed = true
+			MBs, err = strconv.Atoi(MBsString)
+			if err != nil {
+				http.Error(w, "invalid mbs", http.StatusBadRequest)
+				return
+			}
 		}
+		filename := r.URL.Query().Get("filename")
+		if filename == "" {
+			filename = "file.bin"
+		}
+
 		log.Printf("serving %d MB file...\n", sizeMB)
+
+		w.Header().Set("Content-Length", fmt.Sprint(sizeMB*oneMB))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+
 		randomBytes := make([]byte, sizeMB*oneMB)
 		_, err = rand.Read(randomBytes)
 		if err != nil {
 			http.Error(w, "error generating random data", http.StatusInternalServerError)
+			return
+		}
+
+		if !limitedSpeed {
+			_, err := w.Write(randomBytes)
+			if err != nil {
+				log.Println(err)
+			}
 			return
 		}
 
@@ -47,7 +70,7 @@ func main() {
 				log.Printf("finished serving %d MB file successfully.\n", sizeMB)
 				return
 			}
-			n := MBps * oneMB / 100
+			n := MBs * oneMB / 100
 			if n > sizeMB*oneMB-bytesWritten {
 				n = sizeMB*oneMB - bytesWritten
 			}
