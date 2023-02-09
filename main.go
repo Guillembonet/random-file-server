@@ -13,7 +13,8 @@ import (
 const oneMB = 1024 * 1024 // 1 MB
 
 var (
-	FlagAddress = flag.String("address", ":8080", "Address to listen on")
+	FlagAddress   = flag.String("address", ":8080", "Address to listen on")
+	FlagMaxSizeMB = flag.Int("maxSizeMB", 100000, "Maximum size of file to serve in MB")
 )
 
 func main() {
@@ -24,6 +25,10 @@ func main() {
 		sizeMB, err := strconv.Atoi(sizeMBString)
 		if err != nil {
 			http.Error(w, "invalid size_mb", http.StatusBadRequest)
+			return
+		}
+		if sizeMB > *FlagMaxSizeMB {
+			http.Error(w, fmt.Sprintf("size_mb must be less than or equal to %d", *FlagMaxSizeMB), http.StatusBadRequest)
 			return
 		}
 		MBsString := r.URL.Query().Get("mbs")
@@ -85,6 +90,10 @@ func main() {
 
 	if FlagAddress == nil {
 		panic("flagAddress is nil")
+	}
+
+	if FlagMaxSizeMB == nil {
+		panic("flagMaxSizeMB is nil")
 	}
 
 	log.Printf("listening on %s...\n", *FlagAddress)
